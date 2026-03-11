@@ -77,7 +77,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 warnings.filterwarnings("ignore")
 ```
 
-## 1.0 Import and investigate
+### Import and investigate
 
 ```{python}
 pollution = pd.read_csv("../data/pollution.csv").dropna()
@@ -92,7 +92,7 @@ pollution[["PM2.5", "PM10", "NO2", "SO2", "CO"]] = pollution[["PM2.5", "PM10", "
 pollution.describe()
 ```
 
-## 1.1 Target & features
+### Target & features
 ```{python}
 target = "Air Quality"
 X = pollution.drop(["Air Quality"], axis=1)
@@ -103,7 +103,7 @@ y_encoded = label_encoder.fit_transform(y)
 
 ```
 
-## 1.2 Inspect 
+### Inspect 
 ```{python}
 #| label: fig-target-dist
 #| fig-cap: "Distribution of target categories (Air Quality)."
@@ -160,8 +160,6 @@ plt.tight_layout()
 plt.show()
 ```
 
-***Evaluation***
-
 1. Target imbalance:
 
    By examening @fig-target-dist we can see that the target variable is partially imbalanced. The category "Good air quality" accounts for 40% of the data, while "Hazardous air quality" accounts for only 10%. Although the difference is not a very high, it may still lead to the classification models to favor the majority classes. This potential bias could impact the models ability to accurately classify the minority classes, especially if they represent critical conditions. 
@@ -176,7 +174,7 @@ plt.show()
    
 
 
-## 2 Modeling
+## Modeling
 
 ```{python}
 label_encoder = LabelEncoder()
@@ -206,7 +204,7 @@ baseline_metrics = {
 baseline_metrics
 ```
 
-## 2.1 Logistic regression
+### Logistic regression
 ```{python}
 logreg = Pipeline([
     ("scaler", StandardScaler()),
@@ -226,7 +224,6 @@ logreg_metrics = {
 logreg_metrics
 ```
 
-***Evaluation***
 The baseline model (most-frequent class) provides a minimum performance reference. Since it always predicts the same class, it can achieve a relatively high accuracy in an imbalanced dataset, but it does not learn any relationship between the features and the target. In this case, the baseline reaches an accuracy of 0.40 and a macro F1 of 0.143. However, its log loss is 21.63, which is extremely poor. This is expected because the baseline assigns almost all probability mass to a single class, meaning the model is effectively “certain” even when the true label belongs to a different category—log loss penalizes such overconfident misclassification heavily in multiclass settings.
 
 The log loss measures how well a model predicts class probabilities. It penalizes confident wrong predictions more strongly, so lower log loss is better. The Logistic Regression model achieves a log loss of 1.396, which is a major improvement over the baseline (21.63). This indicates that the model produces more meaningful probability estimates and captures real signal from the predictors, even if classification accuracy remains low.
@@ -239,7 +236,7 @@ In summary, Logistic Regression produces substantially better probability calibr
 
 
 
-## 2.2 Quadratic logistic regression
+### Quadratic logistic regression
 
 ```{python}
 poly_logreg = Pipeline([
@@ -261,11 +258,10 @@ poly_metrics = {
 poly_metrics
 ```
 
-***Evaluation***
 Adding polynomial (degree-2) features slightly improves class-balanced performance (macro F1 increases from 0.201 to 0.216 and accuracy increases from 0.208 to 0.22). However, log loss becomes slightly worse (1.396 to 1.407), indicating that probability calibration does not improve. To check whether these differences are robust, I evaluate both models using stratified cross-validation on the training set.
 
 
-## 2.3 Boosting
+### Boosting
 
 **Train & Evaluate**
 ```{python}
@@ -304,9 +300,6 @@ plt.show()
 imp
 ```
 
-
-***Evaluation***
-
 Boosted score:
    The boosting classifier performs better than the logistic regression models on the test set, achieving higher accuracy (0.354) and higher macro F1 (0.253). However, the log loss (1.440) is not improved compared to logistic regression, suggesting that while boosting predicts labels more effectively, its probability estimates are not clearly better calibrated.
 Importance plot:
@@ -315,7 +308,7 @@ Conclusion:
    Overall, boosting provides stronger class-balanced classification performance (macro F1) and improved accuracy relative to logistic regression, which indicates that non-linear modelling adds value for label prediction. At the same time, the probability quality (log loss) does not improve, so logistic regression may remain preferable if well-calibrated probabilities are the main goal. A reasonable next step is to tune boosting hyperparameters and consider simplifying the feature set by removing consistently low-importance variables to reduce noise and improve stability. 
 
 
-## Tuning boosting hyperparameters
+### Tuning boosting hyperparameters
 ```{python}
 param_grid = {
     "learning_rate": [0.05, 0.1],
@@ -349,7 +342,7 @@ best_boost_metrics = {
 best_boost_metrics
 ```
 
-## 2.6 Other models
+## Results
 
 ```{python}
 #| label: tbl-final-results
@@ -377,13 +370,13 @@ results_df.sort_values("Test_LogLoss").style.format({
 
 ```
 
-***Final Comparison***
+Final Comparison
     Across the evaluated models (Table @tbl-final-results), HistGradientBoosting achieves the best overall performance on the test set with log loss = 1.322 and accuracy = 0.391, indicating improved probability estimates and higher label correctness compared to the linear baselines. Logistic Regression performs notably worse (log loss = 1.396, accuracy = 0.208), suggesting that linear decision boundaries are not sufficient to separate the four air quality categories in this dataset. 
 
     The polynomial logistic regression provides a small improvement in accuracy (0.22 vs 0.208) but does not improve log loss, indicating that while it captures some non-linear interactions, it does not produce better-calibrated probabilities. 
 
     The baseline model (most frequent class) achieves a relatively high accuracy (0.40) due to class imbalance but has very poor log loss (21.63), confirming that it does not learn any meaningful relationships between features and the target.
-***Conclusion***
+Conclusion
     Overall, the tuned boosting model provides the best balance of improved probability estimates (log loss) and better label prediction (accuracy, macro F1), making it the most effective choice for this classification task. The importance analysis also highlights which features are driving predictions, providing insights into the factors influencing air quality categories.
 
     In a real deployment, I would further validate the boosting model with cross-validation and consider probability calibration (e.g., isotonic regression) if calibrated risk scores are required.
