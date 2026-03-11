@@ -9,9 +9,9 @@ Applied data science and analytics cases built with Python and Quarto.
 
 | # | Case | Methods | Key result |
 |---|------|---------|------------|
-| 01 | [CO₂ Emissions Prediction](outputs/reports/01_regression_CO2.html) | Gradient Boosting, Ridge Regression | R² = 0.996 |
-| 02 | [Air Quality Classification](outputs/reports/02_classification_airquality.html) | Logistic Regression, HistGradientBoosting | Macro F1 = 0.215 |
-| 03 | [Pendulum Position Modelling](outputs/reports/03_univariate_modelling.html) | Spline Regression, Ridge, GridSearchCV | R² = 0.942 |
+| 01 | [CO₂ Emissions Prediction](https://chrisbtvedte.github.io/data-science-portfolio/outputs/reports/01_regression_CO2.html) | Gradient Boosting, Ridge Regression | R² = 0.996 |
+| 02 | [Air Quality Classification](https://chrisbtvedte.github.io/data-science-portfolio/outputs/reports/02_classification_airquality.html) | Logistic Regression, HistGradientBoosting | Macro F1 = 0.215 |
+| 03 | [Pendulum Position Modelling](https://chrisbtvedte.github.io/data-science-portfolio/outputs/reports/03_univariate_modelling.html) | Spline Regression, Ridge, GridSearchCV | R² = 0.942 |
 
 ## Stack
 - Python (scikit-learn, pandas, matplotlib, seaborn)
