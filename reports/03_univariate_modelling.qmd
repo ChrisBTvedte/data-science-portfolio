@@ -1,0 +1,283 @@
+---
+jupyter: ds
+title: "Pendulum Position Modelling (Univariate Regression Case)"
+author: "Christoffer Boye Tvedte"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+## Executive Summary
+
+This mini-case models the relationship between time and a pendulum’s y-position using a univariate regression approach. I compare a linear baseline to a cubic spline model with Ridge regularization, and tune spline smoothness using cross-validation.
+
+- **Best-performing model (test split):** Tuned Spline + Ridge  
+- **Performance (test split):** RMSE **0.325**, MAE **0.297**, R² **0.9423**
+- **Benchmarks:** Linear Regression RMSE **0.986**, Spline + Ridge (default) RMSE **0.395**
+- **Key insight:** The relationship between time and position is highly non-linear, and the spline model captures this structure much better than linear regression. Tuning the spline parameters further improves performance, demonstrating the importance of model flexibility and regularization in capturing complex patterns in data.
+- **Practical relevance:** This case illustrates how to model non-linear relationships in a univariate regression setting, and the benefits of using splines and regularization to achieve better predictive performance.
+
+## Problem Statement
+
+Many real-world processes evolve non-linearly over time. The objective of this case is to **predict pendulum position** from time using a univariate model that is both accurate and stable. 
+
+A good solution should:
+
+1. achieve low prediction error (RMSE/MAE), and
+
+2. capture the non-linear relationship between time and position effectively.
+
+## Data and context
+
+The data set `positions.csv` contains the following variables.
+
+| Variable | Description |
+| -------- | ----------- | 
+| time     | Time of measurement, rescaled to $[-\pi, \pi]$. |
+| kind     | Type of intervention, `up` (1) or `down` (0).  |
+| position | $y$-position of pendulum. **Target**.          |
+
+I will analyze the data using cubic splines and regression with carefully chosen transformations.
+
+```{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split, KFold, GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import SplineTransformer, StandardScaler
+from sklearn.linear_model import Ridge, LinearRegression
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+np.random.seed(42)
+```
+
+## Data loading and cleaning
+```{python}
+df = pd.read_csv("../data/positions.csv", index_col=0)
+
+print(f"Shape: {df.shape}, Columns: {list(df.columns)}")
+df.head()
+``` 
+
+```{python}
+missing_values = df.isna().any(axis = 1).sum()
+
+print(f"There are {missing_values} rows with 'NA's in the data set.")
+```
+
+### Missing values and data quality 
+```{python}
+df_clean = df.dropna().copy()
+
+df_clean["kind"] = df_clean["kind"].replace({1.0: "up", 0.0: "down"})
+
+df_clean = df_clean.sort_values(by="time", ascending=True)
+
+print(f"Shape after dropping missing values: {df_clean.shape}")
+df_clean.head()
+```
+Rows with missing values were removed for simplicity. Since this is a modelling exercise focused on the functional relationship between time and position, the remaining dataset is sufficient for stable estimation.
+
+### Target & predictor
+```{python}
+target = "position"
+feature = "time"
+
+X = df_clean[[feature]].copy()
+y = df_clean[target].copy()
+
+print("Predictor:", feature)
+print("Target:", target)
+X.head(), y.head()
+```
+
+## Exploratory Data Analysis (EDA)
+```{python}
+#| label: fig-scatter-position-time
+#| fig-cap: "Position over time, coloured by movement direction (kind)."
+#| fig-width: 8
+#| fig-height: 4
+
+plt.figure()
+sns.scatterplot(data=df_clean, x="time", y="position", hue="kind", alpha=0.5)
+plt.title("Position vs time")
+plt.xlabel("Time")
+plt.ylabel("Position")
+plt.show()
+```
+
+The scatter plot reveals a clear non-linear relationship between time and position, with distinct patterns for the 'up' and 'down' movements. This suggests that a linear model may not capture the underlying dynamics effectively, motivating the use of cubic splines to model the non-linearity in the data.
+
+## Baseline model: Linear regression
+```{python}
+X = df_clean[["time"]]
+y = df_clean["position"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+lin = LinearRegression()
+lin.fit(X_train, y_train)
+
+pred_lin = lin.predict(X_test)
+
+rmse_lin = mean_squared_error(y_test, pred_lin) ** 0.5
+mae_lin = mean_absolute_error(y_test, pred_lin)
+r2_lin = r2_score(y_test, pred_lin)
+
+rmse_lin, mae_lin, r2_lin
+```
+
+### Visualization of linear regression predictions
+```{python}
+#| label: fig-linear-fit
+#| fig-cap: "Linear baseline fit on the test set."
+#| fig-width: 8
+#| fig-height: 4
+
+grid = pd.DataFrame({"time": np.linspace(X["time"].min(), X["time"].max(), 300)})
+grid_pred = lin.predict(grid)
+
+plt.figure()
+sns.scatterplot(data=df_clean, x="time", y="position", hue="kind", alpha=0.35)
+plt.plot(grid["time"], grid_pred, linewidth=2)
+plt.title("Linear regression baseline")
+plt.xlabel("Time")
+plt.ylabel("Position")
+plt.show()
+```
+The linear regression model captures the general trend but fails to account for the non-linear patterns in the data, resulting in a relatively high RMSE and low R². This motivates exploring more flexible models that can capture the complex relationship between time and position, such as cubic splines.
+
+## Cubic spline regression with Ridge regularization
+```{python}
+spline_model = Pipeline([
+    ("spline", SplineTransformer(n_knots=8, degree=3, include_bias=False)),
+    ("scaler", StandardScaler()),
+    ("ridge", Ridge(alpha=1.0, random_state=42))
+])
+
+spline_model.fit(X_train, y_train)
+pred_spline = spline_model.predict(X_test)
+
+rmse_spline = mean_squared_error(y_test, pred_spline) ** 0.5
+mae_spline = mean_absolute_error(y_test, pred_spline)
+r2_spline = r2_score(y_test, pred_spline)
+
+rmse_spline, mae_spline, r2_spline
+```
+### comparison of linear regression and cubic spline regression
+```{python}
+compare_df = pd.DataFrame([
+    {"Model": "Linear Regression", "RMSE": rmse_lin, "MAE": mae_lin, "R2": r2_lin},
+    {"Model": "Spline + Ridge", "RMSE": rmse_spline, "MAE": mae_spline, "R2": r2_spline},
+])
+
+compare_df.style.format({"RMSE": "{:.3f}", "MAE": "{:.3f}", "R2": "{:.4f}"})
+```
+The cubic spline regression model significantly outperforms the linear regression baseline, achieving a much lower RMSE and higher R². This indicates that the spline model is better able to capture the non-linear relationship between time and position, providing a more accurate fit to the data.
+### Visualization of cubic spline regression predictions
+```{python}
+#| label: fig-spline-fit
+#| fig-cap: "Spline + Ridge fit captures non-linear structure in position over time."
+#| fig-width: 8
+#| fig-height: 4
+
+grid = pd.DataFrame({"time": np.linspace(X["time"].min(), X["time"].max(), 400)})
+grid_pred_spline = spline_model.predict(grid)
+
+plt.figure()
+sns.scatterplot(data=df_clean, x="time", y="position", hue="kind", alpha=0.35)
+plt.plot(grid["time"], grid_pred_spline, linewidth=2)
+plt.title("Spline regression (Ridge-regularized)")
+plt.xlabel("Time")
+plt.ylabel("Position")
+plt.show()
+```
+The visualization of the cubic spline regression fit shows that it captures the complex, non-linear patterns in the data much more effectively than the linear model. The spline model closely follows the oscillations in position over time, demonstrating its ability to model the underlying dynamics of the pendulum's movement.
+
+## Tuning the spline model
+```{python}
+param_grid = {
+    "spline__n_knots": [5, 8, 12, 16],
+    "ridge__alpha": [0.1, 1.0, 10.0, 100.0],
+}
+
+cv = KFold(n_splits=5, shuffle=True, random_state=42)
+
+gs = GridSearchCV(
+    spline_model,
+    param_grid=param_grid,
+    scoring="neg_root_mean_squared_error",
+    cv=cv,
+    n_jobs=-1
+)
+
+gs.fit(X_train, y_train)
+
+gs.best_params_, -gs.best_score_
+```
+
+### Evaluation of tuned spline model
+```{python}
+best_spline = gs.best_estimator_
+pred_best = best_spline.predict(X_test)
+
+rmse_best = mean_squared_error(y_test, pred_best) ** 0.5
+mae_best = mean_absolute_error(y_test, pred_best)
+r2_best = r2_score(y_test, pred_best)
+
+rmse_best, mae_best, r2_best
+```
+
+## Results summary and comparison of all models
+```{python}
+#| label: tbl-univariate-results
+#| tbl-cap: "Model comparison on the test set (univariate regression)."
+
+final_df = pd.DataFrame([
+    {"Model": "Linear Regression", "RMSE": rmse_lin, "MAE": mae_lin, "R2": r2_lin},
+    {"Model": "Spline + Ridge (default)", "RMSE": rmse_spline, "MAE": mae_spline, "R2": r2_spline},
+    {"Model": "Spline + Ridge (tuned)", "RMSE": rmse_best, "MAE": mae_best, "R2": r2_best},
+]).sort_values("RMSE")
+
+final_df.style.format({"RMSE": "{:.3f}", "MAE": "{:.3f}", "R2": "{:.4f}"})
+```
+
+### Visualization of the best model fit
+```{python}
+#| label: fig-tuned-spline-fit
+#| fig-cap: "Tuned spline model fit (Ridge-regularized) captures non-linear structure."
+#| fig-width: 8
+#| fig-height: 4
+
+grid = pd.DataFrame({"time": np.linspace(X["time"].min(), X["time"].max(), 400)})
+grid_pred_best = best_spline.predict(grid)
+
+plt.figure()
+sns.scatterplot(data=df_clean, x="time", y="position", hue="kind", alpha=0.35)
+plt.plot(grid["time"], grid_pred_best, linewidth=2)
+plt.title("Tuned spline regression (Ridge-regularized)")
+plt.xlabel("Time")
+plt.ylabel("Position")
+plt.show()
+```
+The tuned spline model achieves the best performance, with the lowest RMSE and highest R² among the three models. This demonstrates that careful tuning of the spline parameters and regularization strength can lead to significant improvements in predictive accuracy for this univariate regression task. The linear regression model performs the worst, confirming that it is not suitable for capturing the non-linear relationship in the data. The default spline model performs better than linear regression but is outperformed by the tuned version, highlighting the importance of hyperparameter optimization in achieving optimal model performance.
+
+## Limitations and future directions
+### Limitations
+- This is a univariate model (position ~ f(time)), so it ignores other potentially informative predictors.
+- The train/test split does not respect time ordering; if this were a true time series setting, a time-based split would be more appropriate.
+- The spline fit depends on the choice of knots and regularization; results may vary with different tuning ranges.
+### Future directions
+- Use a time-based validation (e.g., train on earlier time, test on later time).
+- Fit separate curves for kind = up vs kind = down, or include kind as an interaction (e.g., separate spline per group).
+- Explore other non-linear models (e.g., Gaussian Processes, Random Forests) for comparison.

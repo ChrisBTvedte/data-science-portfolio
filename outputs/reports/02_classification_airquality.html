@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.56">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Christoffer Boye Tvedte">
+
+<title>Air Quality (Classification Case)</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script><script src="02_classification_airquality_files/libs/clipboard/clipboard.min.js"></script>
+<script src="02_classification_airquality_files/libs/quarto-html/quarto.js"></script>
+<script src="02_classification_airquality_files/libs/quarto-html/popper.min.js"></script>
+<script src="02_classification_airquality_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="02_classification_airquality_files/libs/quarto-html/anchor.min.js"></script>
+<link href="02_classification_airquality_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="02_classification_airquality_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="02_classification_airquality_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="02_classification_airquality_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="02_classification_airquality_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#executive-summary" id="toc-executive-summary" class="nav-link active" data-scroll-target="#executive-summary"><span class="header-section-number">1</span> Executive Summary</a></li>
+  <li><a href="#problem-statement" id="toc-problem-statement" class="nav-link" data-scroll-target="#problem-statement"><span class="header-section-number">2</span> Problem Statement</a></li>
+  <li><a href="#data" id="toc-data" class="nav-link" data-scroll-target="#data"><span class="header-section-number">3</span> Data</a></li>
+  <li><a href="#import-and-investigate" id="toc-import-and-investigate" class="nav-link" data-scroll-target="#import-and-investigate"><span class="header-section-number">4</span> 1.0 Import and investigate</a></li>
+  <li><a href="#target-features" id="toc-target-features" class="nav-link" data-scroll-target="#target-features"><span class="header-section-number">5</span> 1.1 Target &amp; features</a></li>
+  <li><a href="#inspect" id="toc-inspect" class="nav-link" data-scroll-target="#inspect"><span class="header-section-number">6</span> 1.2 Inspect</a></li>
+  <li><a href="#modeling" id="toc-modeling" class="nav-link" data-scroll-target="#modeling"><span class="header-section-number">7</span> 2 Modeling</a></li>
+  <li><a href="#logistic-regression" id="toc-logistic-regression" class="nav-link" data-scroll-target="#logistic-regression"><span class="header-section-number">8</span> 2.1 Logistic regression</a></li>
+  <li><a href="#quadratic-logistic-regression" id="toc-quadratic-logistic-regression" class="nav-link" data-scroll-target="#quadratic-logistic-regression"><span class="header-section-number">9</span> 2.2 Quadratic logistic regression</a></li>
+  <li><a href="#boosting" id="toc-boosting" class="nav-link" data-scroll-target="#boosting"><span class="header-section-number">10</span> 2.3 Boosting</a></li>
+  <li><a href="#tuning-boosting-hyperparameters" id="toc-tuning-boosting-hyperparameters" class="nav-link" data-scroll-target="#tuning-boosting-hyperparameters"><span class="header-section-number">11</span> Tuning boosting hyperparameters</a></li>
+  <li><a href="#other-models" id="toc-other-models" class="nav-link" data-scroll-target="#other-models"><span class="header-section-number">12</span> 2.6 Other models</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Air Quality (Classification Case)</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Christoffer Boye Tvedte </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="executive-summary" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="executive-summary"><span class="header-section-number">1</span> Executive Summary</h2>
+<p>This mini-case builds a predictive model for classifying air quality levels (Good, Moderate, Poor, Hazardous) based on pollutant concentrations and environmental factors.</p>
+<ul>
+<li><strong>Best-performing model (test split):</strong> Tuned HistGradientBoostingClassifier<br>
+</li>
+<li><strong>Performance (test split):</strong> Macro F1-score <strong>0.215</strong>, Log Loss <strong>1.322</strong>, Accuracy <strong>39.1%</strong><br>
+</li>
+<li><strong>Benchmarks:</strong> Logistic Regression log loss 1.396 (Accuracy 0.208, Macro F1 0.201); Quadratic Logistic Regression log loss 1.407 (Accuracy 0.220, Macro F1 0.216)</li>
+<li><strong>Key insight:</strong> PM2.5 and PM10 concentrations are the strongest predictors, while NO2, SO2, and CO provide additional signal. Environmental factors like temperature and humidity contribute marginally.</li>
+<li><strong>Practical relevance:</strong> The model enables data-driven air quality monitoring and supports targeted interventions for pollution control.</li>
+</ul>
+</section>
+<section id="problem-statement" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="problem-statement"><span class="header-section-number">2</span> Problem Statement</h2>
+<p>Air quality categories are used to communicate health risk and guide actions such as warnings, traffic restrictions, or industrial mitigation. The objective of this case is to <strong>predict air quality level</strong> from measured pollutant concentrations and contextual variables.</p>
+<p>A good solution should:</p>
+<ol type="1">
+<li><p>Produce reliable probabilistic predictions (low log loss) and balanced performance across categories (macro F1).</p></li>
+<li><p>Remain interpretable enough to explain which environmental factors are most associated with deteriorating air quality.</p></li>
+</ol>
+</section>
+<section id="data" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="data"><span class="header-section-number">3</span> Data</h2>
+<p>The data set <code>pollution.csv</code> contains the following variables.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 42%">
+<col style="width: 57%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Temperature (°C)</td>
+<td>Average temperature of the region.</td>
+</tr>
+<tr class="even">
+<td>Humidity (%)</td>
+<td>Relative humidity recorded in the region.</td>
+</tr>
+<tr class="odd">
+<td>PM2.5 Concentration (µg/m³)</td>
+<td>Fine particulate matter levels.</td>
+</tr>
+<tr class="even">
+<td>PM10 Concentration (µg/m³)</td>
+<td>Coarse particulate matter levels.</td>
+</tr>
+<tr class="odd">
+<td>NO2 Concentration (ppb)</td>
+<td>Nitrogen dioxide levels.</td>
+</tr>
+<tr class="even">
+<td>SO2 Concentration (ppb)</td>
+<td>Sulfur dioxide levels.</td>
+</tr>
+<tr class="odd">
+<td>CO Concentration (ppm)</td>
+<td>Carbon monoxide levels.</td>
+</tr>
+<tr class="even">
+<td>Proximity to Industrial Areas (km)</td>
+<td>Distance to the nearest industrial zone.</td>
+</tr>
+<tr class="odd">
+<td>Population Density (people/km²)</td>
+<td>Number of people per square kilometer in the region.</td>
+</tr>
+<tr class="even">
+<td>Air Quality Levels</td>
+<td>Quantification of air quality <strong>Target</strong>.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="import-and-investigate" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="import-and-investigate"><span class="header-section-number">4</span> 1.0 Import and investigate</h2>
+<div id="e73cc8b8" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pollution <span class="op">=</span> pd.read_csv(<span class="st">"../data/pollution.csv"</span>).dropna()</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>pollution.describe()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="2">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Temperature</th>
+<th data-quarto-table-cell-role="th">Humidity</th>
+<th data-quarto-table-cell-role="th">PM2.5</th>
+<th data-quarto-table-cell-role="th">PM10</th>
+<th data-quarto-table-cell-role="th">NO2</th>
+<th data-quarto-table-cell-role="th">SO2</th>
+<th data-quarto-table-cell-role="th">CO</th>
+<th data-quarto-table-cell-role="th">Proximity_to_Industrial_Areas</th>
+<th data-quarto-table-cell-role="th">Population_Density</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">count</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.00000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">mean</td>
+<td>25.464580</td>
+<td>60.068140</td>
+<td>29.905580</td>
+<td>40.003700</td>
+<td>21.00036</td>
+<td>15.141060</td>
+<td>0.904314</td>
+<td>5.031880</td>
+<td>299.948200</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">std</td>
+<td>5.486219</td>
+<td>15.044806</td>
+<td>30.285899</td>
+<td>30.693124</td>
+<td>11.30099</td>
+<td>7.668466</td>
+<td>0.297840</td>
+<td>5.010352</td>
+<td>17.215133</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">min</td>
+<td>3.500000</td>
+<td>10.000000</td>
+<td>0.000000</td>
+<td>-1.400000</td>
+<td>-13.50000</td>
+<td>0.000000</td>
+<td>-0.080000</td>
+<td>0.000000</td>
+<td>243.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">25%</td>
+<td>21.800000</td>
+<td>49.900000</td>
+<td>8.500000</td>
+<td>18.900000</td>
+<td>13.80000</td>
+<td>9.900000</td>
+<td>0.700000</td>
+<td>1.500000</td>
+<td>288.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">50%</td>
+<td>25.300000</td>
+<td>60.200000</td>
+<td>20.600000</td>
+<td>31.100000</td>
+<td>20.50000</td>
+<td>15.100000</td>
+<td>0.905000</td>
+<td>3.500000</td>
+<td>300.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">75%</td>
+<td>28.900000</td>
+<td>70.100000</td>
+<td>41.500000</td>
+<td>51.500000</td>
+<td>27.50000</td>
+<td>20.400000</td>
+<td>1.100000</td>
+<td>6.900000</td>
+<td>311.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">max</td>
+<td>46.200000</td>
+<td>100.000000</td>
+<td>249.000000</td>
+<td>256.100000</td>
+<td>96.40000</td>
+<td>41.700000</td>
+<td>2.140000</td>
+<td>46.300000</td>
+<td>358.000000</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>Some pollutant measurements contain small negative values (likely measurement noise / data artefacts). Since negative concentrations are not physically meaningful, I will clip values at zero.</p>
+<div id="9ce7c76e" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>pollution[[<span class="st">"PM2.5"</span>, <span class="st">"PM10"</span>, <span class="st">"NO2"</span>, <span class="st">"SO2"</span>, <span class="st">"CO"</span>]] <span class="op">=</span> pollution[[<span class="st">"PM2.5"</span>, <span class="st">"PM10"</span>, <span class="st">"NO2"</span>, <span class="st">"SO2"</span>, <span class="st">"CO"</span>]].clip(lower<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>pollution.describe()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="3">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Temperature</th>
+<th data-quarto-table-cell-role="th">Humidity</th>
+<th data-quarto-table-cell-role="th">PM2.5</th>
+<th data-quarto-table-cell-role="th">PM10</th>
+<th data-quarto-table-cell-role="th">NO2</th>
+<th data-quarto-table-cell-role="th">SO2</th>
+<th data-quarto-table-cell-role="th">CO</th>
+<th data-quarto-table-cell-role="th">Proximity_to_Industrial_Areas</th>
+<th data-quarto-table-cell-role="th">Population_Density</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">count</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+<td>5000.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">mean</td>
+<td>25.464580</td>
+<td>60.068140</td>
+<td>29.905580</td>
+<td>40.004320</td>
+<td>21.072720</td>
+<td>15.141060</td>
+<td>0.904394</td>
+<td>5.031880</td>
+<td>299.948200</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">std</td>
+<td>5.486219</td>
+<td>15.044806</td>
+<td>30.285899</td>
+<td>30.692304</td>
+<td>11.145492</td>
+<td>7.668466</td>
+<td>0.297589</td>
+<td>5.010352</td>
+<td>17.215133</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">min</td>
+<td>3.500000</td>
+<td>10.000000</td>
+<td>0.000000</td>
+<td>0.000000</td>
+<td>0.000000</td>
+<td>0.000000</td>
+<td>0.000000</td>
+<td>0.000000</td>
+<td>243.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">25%</td>
+<td>21.800000</td>
+<td>49.900000</td>
+<td>8.500000</td>
+<td>18.900000</td>
+<td>13.800000</td>
+<td>9.900000</td>
+<td>0.700000</td>
+<td>1.500000</td>
+<td>288.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">50%</td>
+<td>25.300000</td>
+<td>60.200000</td>
+<td>20.600000</td>
+<td>31.100000</td>
+<td>20.500000</td>
+<td>15.100000</td>
+<td>0.905000</td>
+<td>3.500000</td>
+<td>300.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">75%</td>
+<td>28.900000</td>
+<td>70.100000</td>
+<td>41.500000</td>
+<td>51.500000</td>
+<td>27.500000</td>
+<td>20.400000</td>
+<td>1.100000</td>
+<td>6.900000</td>
+<td>311.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">max</td>
+<td>46.200000</td>
+<td>100.000000</td>
+<td>249.000000</td>
+<td>256.100000</td>
+<td>96.400000</td>
+<td>41.700000</td>
+<td>2.140000</td>
+<td>46.300000</td>
+<td>358.000000</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="target-features" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="target-features"><span class="header-section-number">5</span> 1.1 Target &amp; features</h2>
+<div id="1b6e2e6b" class="cell" data-execution_count="4">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>target <span class="op">=</span> <span class="st">"Air Quality"</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> pollution.drop([<span class="st">"Air Quality"</span>], axis<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> pollution[target]</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>label_encoder <span class="op">=</span> LabelEncoder()</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>y_encoded <span class="op">=</span> label_encoder.fit_transform(y)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="inspect" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="inspect"><span class="header-section-number">6</span> 1.2 Inspect</h2>
+<div id="cell-fig-target-dist" class="cell" data-fig-height="4" data-fig-width="7" data-execution_count="5">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>target_counts <span class="op">=</span> y.value_counts()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">6</span>))</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>target_counts.plot(kind<span class="op">=</span><span class="st">'bar'</span>, color<span class="op">=</span><span class="st">'skyblue'</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'Distribution of Target Categories (Air Quality)'</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">'Air Quality Categories'</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">'Count'</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>plt.xticks(rotation<span class="op">=</span><span class="dv">45</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>percentages <span class="op">=</span> (target_counts <span class="op">/</span> <span class="bu">len</span>(y)) <span class="op">*</span> <span class="dv">100</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(target_counts)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Percentage distribution:</span><span class="ch">\n</span><span class="st">"</span>, percentages)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-target-dist" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-target-dist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="02_classification_airquality_files/figure-html/fig-target-dist-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-target-dist-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Distribution of target categories (Air Quality).
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Air Quality
+Good         2000
+Moderate     1500
+Poor         1000
+Hazardous     500
+Name: count, dtype: int64
+
+Percentage distribution:
+ Air Quality
+Good         40.0
+Moderate     30.0
+Poor         20.0
+Hazardous    10.0
+Name: count, dtype: float64</code></pre>
+</div>
+</div>
+<div id="cell-fig-kde-distributions" class="cell" data-fig-height="10" data-fig-width="10" data-execution_count="6">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>order <span class="op">=</span> [<span class="st">"Good"</span>, <span class="st">"Moderate"</span>, <span class="st">"Poor"</span>, <span class="st">"Hazardous"</span>]</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>features <span class="op">=</span> [<span class="st">"PM2.5"</span>, <span class="st">"PM10"</span>, <span class="st">"NO2"</span>, <span class="st">"SO2"</span>, <span class="st">"CO"</span>]</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="bu">len</span>(features), <span class="dv">1</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">12</span>), sharex<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, col <span class="kw">in</span> <span class="bu">zip</span>(axes, features):</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    sns.kdeplot(</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        data<span class="op">=</span>pollution,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        x<span class="op">=</span>col,</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        hue<span class="op">=</span><span class="st">"Air Quality"</span>,</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        hue_order<span class="op">=</span>order,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        common_norm<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        ax<span class="op">=</span>ax</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="ss">f"</span><span class="sc">{</span>col<span class="sc">}</span><span class="ss"> distribution by Air Quality"</span>)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    ax.legend_.remove()  </span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>handles, labels <span class="op">=</span> axes[<span class="dv">0</span>].get_legend_handles_labels()</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>fig.legend(handles, labels, loc<span class="op">=</span><span class="st">"upper right"</span>, title<span class="op">=</span><span class="st">"Air Quality Categories"</span>, labels<span class="op">=</span>order)</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, col <span class="kw">in</span> <span class="bu">zip</span>(axes, features):</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    ax.set_ylabel(<span class="ss">f"Density (</span><span class="sc">{</span>col<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-kde-distributions" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-kde-distributions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="02_classification_airquality_files/figure-html/fig-kde-distributions-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-kde-distributions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: KDE distributions of key pollutants by air quality category.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p><strong><em>Evaluation</em></strong></p>
+<ol type="1">
+<li><p>Target imbalance:</p>
+<p>By examening <a href="#fig-target-dist" class="quarto-xref">Figure&nbsp;1</a> we can see that the target variable is partially imbalanced. The category “Good air quality” accounts for 40% of the data, while “Hazardous air quality” accounts for only 10%. Although the difference is not a very high, it may still lead to the classification models to favor the majority classes. This potential bias could impact the models ability to accurately classify the minority classes, especially if they represent critical conditions.</p></li>
+<li><p>Pairplot patterns:</p>
+<p>For visualization, I focus the KDE plots on pollutant concentration variables (PM2.5, PM10, NO2, SO2, CO) because they are the most direct drivers of air quality categories and yield interpretable distribution comparisons across classes. All available features (including temperature, humidity, proximity to industrial areas, and population density) are still included in model training and are later evaluated using model-based feature importance.</p>
+<p>The KDE plots in <a href="#fig-kde-distributions" class="quarto-xref">Figure&nbsp;2</a> show substantial overlap between air quality categories for most variables. PM2.5 and PM10 are strongly right-skewed and exhibit slightly different tails across categories, suggesting they may carry more signal than the other pollutants. NO2, SO2, and CO show highly overlapping distributions, indicating limited separability when considered individually. Overall, the overlap suggests that robust performance will likely require combining multiple predictors and capturing interactions, which motivates comparing linear and non-linear classifiers and using model-based feature importance later.</p></li>
+</ol>
+</section>
+<section id="modeling" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="modeling"><span class="header-section-number">7</span> 2 Modeling</h2>
+<div id="977f50c4" class="cell" data-execution_count="7">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>label_encoder <span class="op">=</span> LabelEncoder()</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>y_encoded <span class="op">=</span> label_encoder.fit_transform(y)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>X_train, X_test, y_train, y_test <span class="op">=</span> train_test_split(</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    X, y_encoded, test_size<span class="op">=</span><span class="fl">0.2</span>, random_state<span class="op">=</span><span class="dv">42</span>, stratify<span class="op">=</span>y_encoded</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>class_names <span class="op">=</span> label_encoder.classes_</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>class_names</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<pre><code>array(['Good', 'Hazardous', 'Moderate', 'Poor'], dtype=object)</code></pre>
+</div>
+</div>
+<div id="05dbae88" class="cell" data-execution_count="8">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>baseline <span class="op">=</span> DummyClassifier(strategy<span class="op">=</span><span class="st">"most_frequent"</span>, random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>baseline.fit(X_train, y_train)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>base_pred <span class="op">=</span> baseline.predict(X_test)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>base_proba <span class="op">=</span> baseline.predict_proba(X_test)</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>baseline_metrics <span class="op">=</span> {</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Model"</span>: <span class="st">"Baseline (most frequent)"</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">"LogLoss"</span>: log_loss(y_test, base_proba),</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"MacroF1"</span>: f1_score(y_test, base_pred, average<span class="op">=</span><span class="st">"macro"</span>),</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Accuracy"</span>: accuracy_score(y_test, base_pred),</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>baseline_metrics</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<pre><code>{'Model': 'Baseline (most frequent)',
+ 'LogLoss': 21.626192033470286,
+ 'MacroF1': 0.14285714285714285,
+ 'Accuracy': 0.4}</code></pre>
+</div>
+</div>
+</section>
+<section id="logistic-regression" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="logistic-regression"><span class="header-section-number">8</span> 2.1 Logistic regression</h2>
+<div id="0d99d3ed" class="cell" data-execution_count="9">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>logreg <span class="op">=</span> Pipeline([</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"scaler"</span>, StandardScaler()),</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"clf"</span>, LogisticRegression(max_iter<span class="op">=</span><span class="dv">5000</span>, class_weight<span class="op">=</span><span class="st">"balanced"</span>, random_state<span class="op">=</span><span class="dv">42</span>))</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>logreg.fit(X_train, y_train)</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>pred <span class="op">=</span> logreg.predict(X_test)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>proba <span class="op">=</span> logreg.predict_proba(X_test)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>logreg_metrics <span class="op">=</span> {</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Model"</span>: <span class="st">"Logistic Regression"</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"LogLoss"</span>: log_loss(y_test, proba),</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"MacroF1"</span>: f1_score(y_test, pred, average<span class="op">=</span><span class="st">"macro"</span>),</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Accuracy"</span>: accuracy_score(y_test, pred),</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>logreg_metrics</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="9">
+<pre><code>{'Model': 'Logistic Regression',
+ 'LogLoss': 1.3961318133168998,
+ 'MacroF1': 0.20090680690563487,
+ 'Accuracy': 0.208}</code></pre>
+</div>
+</div>
+<p><strong><em>Evaluation</em></strong> The baseline model (most-frequent class) provides a minimum performance reference. Since it always predicts the same class, it can achieve a relatively high accuracy in an imbalanced dataset, but it does not learn any relationship between the features and the target. In this case, the baseline reaches an accuracy of 0.40 and a macro F1 of 0.143. However, its log loss is 21.63, which is extremely poor. This is expected because the baseline assigns almost all probability mass to a single class, meaning the model is effectively “certain” even when the true label belongs to a different category—log loss penalizes such overconfident misclassification heavily in multiclass settings.</p>
+<p>The log loss measures how well a model predicts class probabilities. It penalizes confident wrong predictions more strongly, so lower log loss is better. The Logistic Regression model achieves a log loss of 1.396, which is a major improvement over the baseline (21.63). This indicates that the model produces more meaningful probability estimates and captures real signal from the predictors, even if classification accuracy remains low.</p>
+<p>The accuracy score measures the proportion of correctly predicted labels. Logistic Regression achieves an accuracy of 0.208, which is lower than the baseline accuracy (0.40). This suggests that the linear decision boundaries of Logistic Regression may not be sufficient to outperform a majority-class strategy on raw label correctness, especially given overlap between class distributions observed in the EDA.</p>
+<p>To account for class imbalance, I also report macro F1, which weighs all classes equally. Logistic Regression achieves a macro F1 of 0.201, improving over the baseline (0.143). This indicates better balanced performance across categories, even though the model still struggles overall.</p>
+<p>In summary, Logistic Regression produces substantially better probability calibration (log loss) and better class-balanced performance (macro F1), but it does not improve raw accuracy relative to a majority-class baseline. In the next step, I test more flexible non-linear models to better capture interactions and improve separation between air quality categories.</p>
+</section>
+<section id="quadratic-logistic-regression" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="quadratic-logistic-regression"><span class="header-section-number">9</span> 2.2 Quadratic logistic regression</h2>
+<div id="659fe863" class="cell" data-execution_count="10">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>poly_logreg <span class="op">=</span> Pipeline([</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"poly"</span>, PolynomialFeatures(degree<span class="op">=</span><span class="dv">2</span>, include_bias<span class="op">=</span><span class="va">False</span>)),</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"scaler"</span>, StandardScaler()),</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">"clf"</span>, LogisticRegression(max_iter<span class="op">=</span><span class="dv">5000</span>, class_weight<span class="op">=</span><span class="st">"balanced"</span>, random_state<span class="op">=</span><span class="dv">42</span>))</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>poly_logreg.fit(X_train, y_train)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>pred <span class="op">=</span> poly_logreg.predict(X_test)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>proba <span class="op">=</span> poly_logreg.predict_proba(X_test)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>poly_metrics <span class="op">=</span> {</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Model"</span>: <span class="st">"Quadratic LogReg (poly deg=2)"</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"LogLoss"</span>: log_loss(y_test, proba),</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"MacroF1"</span>: f1_score(y_test, pred, average<span class="op">=</span><span class="st">"macro"</span>),</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Accuracy"</span>: accuracy_score(y_test, pred),</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>poly_metrics</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>{'Model': 'Quadratic LogReg (poly deg=2)',
+ 'LogLoss': 1.4073081908880127,
+ 'MacroF1': 0.21580139321998046,
+ 'Accuracy': 0.22}</code></pre>
+</div>
+</div>
+<p><strong><em>Evaluation</em></strong> Adding polynomial (degree-2) features slightly improves class-balanced performance (macro F1 increases from 0.201 to 0.216 and accuracy increases from 0.208 to 0.22). However, log loss becomes slightly worse (1.396 to 1.407), indicating that probability calibration does not improve. To check whether these differences are robust, I evaluate both models using stratified cross-validation on the training set.</p>
+</section>
+<section id="boosting" class="level2" data-number="10">
+<h2 data-number="10" class="anchored" data-anchor-id="boosting"><span class="header-section-number">10</span> 2.3 Boosting</h2>
+<p><strong>Train &amp; Evaluate</strong></p>
+<div id="e869dcc8" class="cell" data-execution_count="11">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>boost <span class="op">=</span> HistGradientBoostingClassifier(random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>boost.fit(X_train, y_train)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>pred <span class="op">=</span> boost.predict(X_test)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>proba <span class="op">=</span> boost.predict_proba(X_test)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>boost_metrics <span class="op">=</span> {</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Model"</span>: <span class="st">"HistGradientBoosting"</span>,</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">"LogLoss"</span>: log_loss(y_test, proba),</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"MacroF1"</span>: f1_score(y_test, pred, average<span class="op">=</span><span class="st">"macro"</span>),</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Accuracy"</span>: accuracy_score(y_test, pred),</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>boost_metrics</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<pre><code>{'Model': 'HistGradientBoosting',
+ 'LogLoss': 1.439946392696233,
+ 'MacroF1': 0.25266814951838945,
+ 'Accuracy': 0.354}</code></pre>
+</div>
+</div>
+<p><strong>Permutation importance</strong></p>
+<div class="cell" data-execution_count="12">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>perm <span class="op">=</span> permutation_importance(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    boost, X_test, y_test, n_repeats<span class="op">=</span><span class="dv">10</span>, random_state<span class="op">=</span><span class="dv">42</span>, scoring<span class="op">=</span><span class="st">"neg_log_loss"</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>imp <span class="op">=</span> pd.Series(perm.importances_mean, index<span class="op">=</span>X.columns).sort_values(ascending<span class="op">=</span><span class="va">False</span>).head(<span class="dv">10</span>)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>imp.sort_values().plot(kind<span class="op">=</span><span class="st">"barh"</span>)</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Permutation importance (Boosting, test set) — Top 10"</span>)</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Importance (decrease in performance when permuted)"</span>)</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">""</span>)</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>imp</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div id="fig-importance" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="12">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-importance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display">
+<div id="fig-importance-1" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-importance-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="02_classification_airquality_files/figure-html/fig-importance-output-1.png" class="img-fluid figure-img" data-ref-parent="fig-importance">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-importance-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) Permutation importance of features for the boosting model (test set).
+</figcaption>
+</figure>
+</div>
+</div>
+<div id="fig-importance-2" class="cell-output cell-output-display quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="12">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-importance-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<pre id="fig-importance-2" class="cell-output cell-output-display" data-execution_count="12"><code>PM2.5                            0.015945
+PM10                             0.009462
+CO                               0.003099
+Population_Density               0.000348
+SO2                             -0.003213
+Proximity_to_Industrial_Areas   -0.004093
+Temperature                     -0.004874
+NO2                             -0.006953
+Humidity                        -0.010414
+dtype: float64</code></pre>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-importance-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b)
+</figcaption>
+</figure>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-importance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3
+</figcaption>
+</figure>
+</div>
+</div>
+<p><strong><em>Evaluation</em></strong></p>
+<p>Boosted score: The boosting classifier performs better than the logistic regression models on the test set, achieving higher accuracy (0.354) and higher macro F1 (0.253). However, the log loss (1.440) is not improved compared to logistic regression, suggesting that while boosting predicts labels more effectively, its probability estimates are not clearly better calibrated. Importance plot: In the permutation importance plot <a href="#fig-importance" class="quarto-xref">Figure&nbsp;3</a>, PM2.5 and PM10 stand out as the most influential predictors. Several other features have near-zero importance, and some show slightly negative values. Negative permutation importance can occur due to sampling noise and indicates that permuting the feature does not consistently harm performance. Overall, the plot suggests that the model relies primarily on particulate matter measures, while variables such as Population_Density contribute little in this setting. Conclusion: Overall, boosting provides stronger class-balanced classification performance (macro F1) and improved accuracy relative to logistic regression, which indicates that non-linear modelling adds value for label prediction. At the same time, the probability quality (log loss) does not improve, so logistic regression may remain preferable if well-calibrated probabilities are the main goal. A reasonable next step is to tune boosting hyperparameters and consider simplifying the feature set by removing consistently low-importance variables to reduce noise and improve stability.</p>
+</section>
+<section id="tuning-boosting-hyperparameters" class="level2" data-number="11">
+<h2 data-number="11" class="anchored" data-anchor-id="tuning-boosting-hyperparameters"><span class="header-section-number">11</span> Tuning boosting hyperparameters</h2>
+<div id="dc9f381e" class="cell" data-execution_count="13">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>param_grid <span class="op">=</span> {</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"learning_rate"</span>: [<span class="fl">0.05</span>, <span class="fl">0.1</span>],</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">3</span>, <span class="va">None</span>],</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_iter"</span>: [<span class="dv">200</span>, <span class="dv">400</span>],</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>cv <span class="op">=</span> StratifiedKFold(n_splits<span class="op">=</span><span class="dv">5</span>, shuffle<span class="op">=</span><span class="va">True</span>, random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>gs <span class="op">=</span> GridSearchCV(</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    HistGradientBoostingClassifier(random_state<span class="op">=</span><span class="dv">42</span>),</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>    param_grid<span class="op">=</span>param_grid,</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>    scoring<span class="op">=</span><span class="st">"neg_log_loss"</span>,</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>    cv<span class="op">=</span>cv,</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>    n_jobs<span class="op">=-</span><span class="dv">1</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>gs.fit(X_train, y_train)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>best_boost <span class="op">=</span> gs.best_estimator_</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>gs.best_params_, <span class="op">-</span>gs.best_score_</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>pred <span class="op">=</span> best_boost.predict(X_test)</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>proba <span class="op">=</span> best_boost.predict_proba(X_test)</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>best_boost_metrics <span class="op">=</span> {</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Model"</span>: <span class="st">"HistGradientBoosting"</span>,</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>    <span class="st">"LogLoss"</span>: log_loss(y_test, proba),</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>    <span class="st">"MacroF1"</span>: f1_score(y_test, pred, average<span class="op">=</span><span class="st">"macro"</span>),</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Accuracy"</span>: accuracy_score(y_test, pred),</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>best_boost_metrics</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<pre><code>{'Model': 'HistGradientBoosting',
+ 'LogLoss': 1.3215838187111557,
+ 'MacroF1': 0.21541108974737294,
+ 'Accuracy': 0.391}</code></pre>
+</div>
+</div>
+</section>
+<section id="other-models" class="level2" data-number="12">
+<h2 data-number="12" class="anchored" data-anchor-id="other-models"><span class="header-section-number">12</span> 2.6 Other models</h2>
+<div class="cell" data-execution_count="14">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>results_df <span class="op">=</span> pd.DataFrame([</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    baseline_metrics,</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    logreg_metrics,</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    poly_metrics,</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    best_boost_metrics, </span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>results_df <span class="op">=</span> results_df.rename(columns<span class="op">=</span>{</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">"LogLoss"</span>: <span class="st">"Test_LogLoss"</span>,</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"MacroF1"</span>: <span class="st">"Test_MacroF1"</span>,</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Accuracy"</span>: <span class="st">"Test_Accuracy"</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>results_df.sort_values(<span class="st">"Test_LogLoss"</span>).style.<span class="bu">format</span>({</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Test_LogLoss"</span>: <span class="st">"</span><span class="sc">{:.3f}</span><span class="st">"</span>,</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Test_MacroF1"</span>: <span class="st">"</span><span class="sc">{:.3f}</span><span class="st">"</span>,</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Test_Accuracy"</span>: <span class="st">"</span><span class="sc">{:.3f}</span><span class="st">"</span>,</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">"CV_LogLoss"</span>: <span class="st">"</span><span class="sc">{:.3f}</span><span class="st">"</span> <span class="cf">if</span> <span class="st">"CV_LogLoss"</span> <span class="kw">in</span> results_df.columns <span class="cf">else</span> <span class="st">"</span><span class="sc">{:.3f}</span><span class="st">"</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div id="tbl-final-results" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="14">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-final-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: Model comparison on the test set.
+</figcaption>
+<div aria-describedby="tbl-final-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="14">
+<style type="text/css">
+</style>
+
+<table id="T_e2653" class="do-not-create-environment cell caption-top table table-sm table-striped small" data-quarto-postprocess="true">
+<thead>
+<tr class="header">
+<th class="blank level0" data-quarto-table-cell-role="th">&nbsp;</th>
+<th id="T_e2653_level0_col0" class="col_heading level0 col0" data-quarto-table-cell-role="th">Model</th>
+<th id="T_e2653_level0_col1" class="col_heading level0 col1" data-quarto-table-cell-role="th">Test_LogLoss</th>
+<th id="T_e2653_level0_col2" class="col_heading level0 col2" data-quarto-table-cell-role="th">Test_MacroF1</th>
+<th id="T_e2653_level0_col3" class="col_heading level0 col3" data-quarto-table-cell-role="th">Test_Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td id="T_e2653_level0_row0" class="row_heading level0 row0" data-quarto-table-cell-role="th">3</td>
+<td id="T_e2653_row0_col0" class="data row0 col0">HistGradientBoosting</td>
+<td id="T_e2653_row0_col1" class="data row0 col1">1.322</td>
+<td id="T_e2653_row0_col2" class="data row0 col2">0.215</td>
+<td id="T_e2653_row0_col3" class="data row0 col3">0.391</td>
+</tr>
+<tr class="even">
+<td id="T_e2653_level0_row1" class="row_heading level0 row1" data-quarto-table-cell-role="th">1</td>
+<td id="T_e2653_row1_col0" class="data row1 col0">Logistic Regression</td>
+<td id="T_e2653_row1_col1" class="data row1 col1">1.396</td>
+<td id="T_e2653_row1_col2" class="data row1 col2">0.201</td>
+<td id="T_e2653_row1_col3" class="data row1 col3">0.208</td>
+</tr>
+<tr class="odd">
+<td id="T_e2653_level0_row2" class="row_heading level0 row2" data-quarto-table-cell-role="th">2</td>
+<td id="T_e2653_row2_col0" class="data row2 col0">Quadratic LogReg (poly deg=2)</td>
+<td id="T_e2653_row2_col1" class="data row2 col1">1.407</td>
+<td id="T_e2653_row2_col2" class="data row2 col2">0.216</td>
+<td id="T_e2653_row2_col3" class="data row2 col3">0.220</td>
+</tr>
+<tr class="even">
+<td id="T_e2653_level0_row3" class="row_heading level0 row3" data-quarto-table-cell-role="th">0</td>
+<td id="T_e2653_row3_col0" class="data row3 col0">Baseline (most frequent)</td>
+<td id="T_e2653_row3_col1" class="data row3 col1">21.626</td>
+<td id="T_e2653_row3_col2" class="data row3 col2">0.143</td>
+<td id="T_e2653_row3_col3" class="data row3 col3">0.400</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<p><strong><em>Final Comparison</em></strong> Across the evaluated models (Table <a href="#tbl-final-results" class="quarto-xref">Table&nbsp;1</a>), HistGradientBoosting achieves the best overall performance on the test set with log loss = 1.322 and accuracy = 0.391, indicating improved probability estimates and higher label correctness compared to the linear baselines. Logistic Regression performs notably worse (log loss = 1.396, accuracy = 0.208), suggesting that linear decision boundaries are not sufficient to separate the four air quality categories in this dataset.</p>
+<pre><code>The polynomial logistic regression provides a small improvement in accuracy (0.22 vs 0.208) but does not improve log loss, indicating that while it captures some non-linear interactions, it does not produce better-calibrated probabilities. 
+
+The baseline model (most frequent class) achieves a relatively high accuracy (0.40) due to class imbalance but has very poor log loss (21.63), confirming that it does not learn any meaningful relationships between features and the target.</code></pre>
+<p><strong><em>Conclusion</em></strong> Overall, the tuned boosting model provides the best balance of improved probability estimates (log loss) and better label prediction (accuracy, macro F1), making it the most effective choice for this classification task. The importance analysis also highlights which features are driving predictions, providing insights into the factors influencing air quality categories.</p>
+<pre><code>In a real deployment, I would further validate the boosting model with cross-validation and consider probability calibration (e.g., isotonic regression) if calibrated risk scores are required.</code></pre>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

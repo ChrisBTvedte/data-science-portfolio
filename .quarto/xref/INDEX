@@ -1,0 +1,11 @@
+{
+  "reports/01_regression_CO2.qmd": {
+    "01_regression_CO2.html": "cfe1a33f"
+  },
+  "reports/02_classification_airquality.qmd": {
+    "02_classification_airquality.html": "4fd97eb4"
+  },
+  "reports/03_univariate_modelling.qmd": {
+    "03_univariate_modelling.html": "de0094f9"
+  }
+}

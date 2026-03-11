@@ -1,0 +1,390 @@
+---
+jupyter: ds
+title: "Air Quality (Classification Case)"
+author: "Christoffer Boye Tvedte"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+## Executive Summary
+
+This mini-case builds a predictive model for classifying air quality levels (Good, Moderate, Poor, Hazardous) based on pollutant concentrations and environmental factors.
+
+- **Best-performing model (test split):** Tuned HistGradientBoostingClassifier  
+- **Performance (test split):** Macro F1-score **0.215**, Log Loss **1.322**, Accuracy **39.1%**  
+- **Benchmarks:** Logistic Regression log loss 1.396 (Accuracy 0.208, Macro F1 0.201); Quadratic Logistic Regression log loss 1.407 (Accuracy 0.220, Macro F1 0.216)
+- **Key insight:** PM2.5 and PM10 concentrations are the strongest predictors, while NO2, SO2, and CO provide additional signal. Environmental factors like temperature and humidity contribute marginally.
+- **Practical relevance:** The model enables data-driven air quality monitoring and supports targeted interventions for pollution control.
+
+## Problem Statement
+
+Air quality categories are used to communicate health risk and guide actions such as warnings, traffic restrictions, or industrial mitigation.
+The objective of this case is to **predict air quality level** from measured pollutant concentrations and contextual variables.
+
+A good solution should:
+
+1. Produce reliable probabilistic predictions (low log loss) and balanced performance across categories (macro F1).
+
+2. Remain interpretable enough to explain which environmental factors are most associated with deteriorating air quality.
+
+## Data
+
+The data set `pollution.csv` contains the following variables.
+
+| Variable | Description |
+| -------- | ----------- | 
+| Temperature (°C)                    | Average temperature of the region. |
+| Humidity (%)                        | Relative humidity recorded in the region. |
+| PM2.5 Concentration (µg/m³)         | Fine particulate matter levels. |
+| PM10 Concentration (µg/m³)          | Coarse particulate matter levels. |
+| NO2 Concentration (ppb)             | Nitrogen dioxide levels. |
+| SO2 Concentration (ppb)             | Sulfur dioxide levels. |
+| CO Concentration (ppm)              | Carbon monoxide levels. |
+| Proximity to Industrial Areas (km)  | Distance to the nearest industrial zone. |
+| Population Density (people/km²)     | Number of people per square kilometer in the region. |
+| Air Quality Levels                  | Quantification of air quality **Target**. |
+
+```{python}
+# | echo: False
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.preprocessing import LabelEncoder
+import warnings
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.inspection import permutation_importance
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.dummy import DummyClassifier
+from sklearn.metrics import log_loss, f1_score, accuracy_score
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+
+warnings.filterwarnings("ignore")
+```
+
+## 1.0 Import and investigate
+
+```{python}
+pollution = pd.read_csv("../data/pollution.csv").dropna()
+
+pollution.describe()
+```
+
+Some pollutant measurements contain small negative values (likely measurement noise / data artefacts). Since negative concentrations are not physically meaningful, I will clip values at zero.
+
+```{python}
+pollution[["PM2.5", "PM10", "NO2", "SO2", "CO"]] = pollution[["PM2.5", "PM10", "NO2", "SO2", "CO"]].clip(lower=0)
+pollution.describe()
+```
+
+## 1.1 Target & features
+```{python}
+target = "Air Quality"
+X = pollution.drop(["Air Quality"], axis=1)
+y = pollution[target]
+
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+```
+
+## 1.2 Inspect 
+```{python}
+#| label: fig-target-dist
+#| fig-cap: "Distribution of target categories (Air Quality)."
+#| fig-width: 7
+#| fig-height: 4
+target_counts = y.value_counts()
+
+plt.figure(figsize=(10, 6))
+target_counts.plot(kind='bar', color='skyblue')
+plt.title('Distribution of Target Categories (Air Quality)')
+plt.xlabel('Air Quality Categories')
+plt.ylabel('Count')
+plt.xticks(rotation=45)
+plt.show()
+
+percentages = (target_counts / len(y)) * 100
+
+print(target_counts)
+print("\nPercentage distribution:\n", percentages)
+
+```
+
+```{python}
+
+#| label: fig-kde-distributions
+#| fig-cap: "KDE distributions of key pollutants by air quality category."
+#| fig-width: 10
+#| fig-height: 10
+
+order = ["Good", "Moderate", "Poor", "Hazardous"]
+features = ["PM2.5", "PM10", "NO2", "SO2", "CO"]
+
+fig, axes = plt.subplots(len(features), 1, figsize=(10, 12), sharex=False)
+
+for ax, col in zip(axes, features):
+    sns.kdeplot(
+        data=pollution,
+        x=col,
+        hue="Air Quality",
+        hue_order=order,
+        common_norm=False,
+        ax=ax
+    )
+    ax.set_title(f"{col} distribution by Air Quality")
+    ax.legend_.remove()  
+
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="upper right", title="Air Quality Categories", labels=order)
+
+for ax, col in zip(axes, features):
+    ax.set_ylabel(f"Density ({col})")
+
+plt.tight_layout()
+plt.show()
+```
+
+***Evaluation***
+
+1. Target imbalance:
+
+   By examening @fig-target-dist we can see that the target variable is partially imbalanced. The category "Good air quality" accounts for 40% of the data, while "Hazardous air quality" accounts for only 10%. Although the difference is not a very high, it may still lead to the classification models to favor the majority classes. This potential bias could impact the models ability to accurately classify the minority classes, especially if they represent critical conditions. 
+
+2. Pairplot patterns:
+
+    For visualization, I focus the KDE plots on pollutant concentration variables (PM2.5, PM10, NO2, SO2, CO) because they are the most direct drivers of air quality categories and yield interpretable distribution comparisons across classes. All available features (including temperature, humidity, proximity to industrial areas, and population density) are still included in model training and are later evaluated using model-based feature importance.
+    
+    The KDE plots in @fig-kde-distributions show substantial overlap between air quality categories for most variables. PM2.5 and PM10 are strongly right-skewed and exhibit slightly different tails across categories, suggesting they may carry more signal than the other pollutants. NO2, SO2, and CO show highly overlapping distributions, indicating limited separability when considered individually. Overall, the overlap suggests that robust performance will likely require combining multiple predictors and capturing interactions, which motivates comparing linear and non-linear classifiers and using model-based feature importance later.
+ 
+
+   
+
+
+## 2 Modeling
+
+```{python}
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+)
+
+class_names = label_encoder.classes_
+class_names
+```
+
+```{python}
+baseline = DummyClassifier(strategy="most_frequent", random_state=42)
+baseline.fit(X_train, y_train)
+
+base_pred = baseline.predict(X_test)
+base_proba = baseline.predict_proba(X_test)
+
+baseline_metrics = {
+    "Model": "Baseline (most frequent)",
+    "LogLoss": log_loss(y_test, base_proba),
+    "MacroF1": f1_score(y_test, base_pred, average="macro"),
+    "Accuracy": accuracy_score(y_test, base_pred),
+}
+baseline_metrics
+```
+
+## 2.1 Logistic regression
+```{python}
+logreg = Pipeline([
+    ("scaler", StandardScaler()),
+    ("clf", LogisticRegression(max_iter=5000, class_weight="balanced", random_state=42))
+])
+
+logreg.fit(X_train, y_train)
+pred = logreg.predict(X_test)
+proba = logreg.predict_proba(X_test)
+
+logreg_metrics = {
+    "Model": "Logistic Regression",
+    "LogLoss": log_loss(y_test, proba),
+    "MacroF1": f1_score(y_test, pred, average="macro"),
+    "Accuracy": accuracy_score(y_test, pred),
+}
+logreg_metrics
+```
+
+***Evaluation***
+The baseline model (most-frequent class) provides a minimum performance reference. Since it always predicts the same class, it can achieve a relatively high accuracy in an imbalanced dataset, but it does not learn any relationship between the features and the target. In this case, the baseline reaches an accuracy of 0.40 and a macro F1 of 0.143. However, its log loss is 21.63, which is extremely poor. This is expected because the baseline assigns almost all probability mass to a single class, meaning the model is effectively “certain” even when the true label belongs to a different category—log loss penalizes such overconfident misclassification heavily in multiclass settings.
+
+The log loss measures how well a model predicts class probabilities. It penalizes confident wrong predictions more strongly, so lower log loss is better. The Logistic Regression model achieves a log loss of 1.396, which is a major improvement over the baseline (21.63). This indicates that the model produces more meaningful probability estimates and captures real signal from the predictors, even if classification accuracy remains low.
+
+The accuracy score measures the proportion of correctly predicted labels. Logistic Regression achieves an accuracy of 0.208, which is lower than the baseline accuracy (0.40). This suggests that the linear decision boundaries of Logistic Regression may not be sufficient to outperform a majority-class strategy on raw label correctness, especially given overlap between class distributions observed in the EDA.
+
+To account for class imbalance, I also report macro F1, which weighs all classes equally. Logistic Regression achieves a macro F1 of 0.201, improving over the baseline (0.143). This indicates better balanced performance across categories, even though the model still struggles overall.
+
+In summary, Logistic Regression produces substantially better probability calibration (log loss) and better class-balanced performance (macro F1), but it does not improve raw accuracy relative to a majority-class baseline. In the next step, I test more flexible non-linear models to better capture interactions and improve separation between air quality categories.
+
+
+
+## 2.2 Quadratic logistic regression
+
+```{python}
+poly_logreg = Pipeline([
+    ("poly", PolynomialFeatures(degree=2, include_bias=False)),
+    ("scaler", StandardScaler()),
+    ("clf", LogisticRegression(max_iter=5000, class_weight="balanced", random_state=42))
+])
+
+poly_logreg.fit(X_train, y_train)
+pred = poly_logreg.predict(X_test)
+proba = poly_logreg.predict_proba(X_test)
+
+poly_metrics = {
+    "Model": "Quadratic LogReg (poly deg=2)",
+    "LogLoss": log_loss(y_test, proba),
+    "MacroF1": f1_score(y_test, pred, average="macro"),
+    "Accuracy": accuracy_score(y_test, pred),
+}
+poly_metrics
+```
+
+***Evaluation***
+Adding polynomial (degree-2) features slightly improves class-balanced performance (macro F1 increases from 0.201 to 0.216 and accuracy increases from 0.208 to 0.22). However, log loss becomes slightly worse (1.396 to 1.407), indicating that probability calibration does not improve. To check whether these differences are robust, I evaluate both models using stratified cross-validation on the training set.
+
+
+## 2.3 Boosting
+
+**Train & Evaluate**
+```{python}
+boost = HistGradientBoostingClassifier(random_state=42)
+boost.fit(X_train, y_train)
+
+pred = boost.predict(X_test)
+proba = boost.predict_proba(X_test)
+
+boost_metrics = {
+    "Model": "HistGradientBoosting",
+    "LogLoss": log_loss(y_test, proba),
+    "MacroF1": f1_score(y_test, pred, average="macro"),
+    "Accuracy": accuracy_score(y_test, pred),
+}
+boost_metrics
+```
+
+**Permutation importance**
+```{python}
+#| label: fig-importance
+#| fig-cap: "Permutation importance of features for the boosting model (test set)."
+perm = permutation_importance(
+    boost, X_test, y_test, n_repeats=10, random_state=42, scoring="neg_log_loss"
+)
+
+imp = pd.Series(perm.importances_mean, index=X.columns).sort_values(ascending=False).head(10)
+
+plt.figure()
+imp.sort_values().plot(kind="barh")
+plt.title("Permutation importance (Boosting, test set) — Top 10")
+plt.xlabel("Importance (decrease in performance when permuted)")
+plt.ylabel("")
+plt.show()
+
+imp
+```
+
+
+***Evaluation***
+
+Boosted score:
+   The boosting classifier performs better than the logistic regression models on the test set, achieving higher accuracy (0.354) and higher macro F1 (0.253). However, the log loss (1.440) is not improved compared to logistic regression, suggesting that while boosting predicts labels more effectively, its probability estimates are not clearly better calibrated.
+Importance plot:
+   In the permutation importance plot @fig-importance, PM2.5 and PM10 stand out as the most influential predictors. Several other features have near-zero importance, and some show slightly negative values. Negative permutation importance can occur due to sampling noise and indicates that permuting the feature does not consistently harm performance. Overall, the plot suggests that the model relies primarily on particulate matter measures, while variables such as Population_Density contribute little in this setting.
+Conclusion:
+   Overall, boosting provides stronger class-balanced classification performance (macro F1) and improved accuracy relative to logistic regression, which indicates that non-linear modelling adds value for label prediction. At the same time, the probability quality (log loss) does not improve, so logistic regression may remain preferable if well-calibrated probabilities are the main goal. A reasonable next step is to tune boosting hyperparameters and consider simplifying the feature set by removing consistently low-importance variables to reduce noise and improve stability. 
+
+
+## Tuning boosting hyperparameters
+```{python}
+param_grid = {
+    "learning_rate": [0.05, 0.1],
+    "max_depth": [3, None],
+    "max_iter": [200, 400],
+}
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+gs = GridSearchCV(
+    HistGradientBoostingClassifier(random_state=42),
+    param_grid=param_grid,
+    scoring="neg_log_loss",
+    cv=cv,
+    n_jobs=-1
+)
+gs.fit(X_train, y_train)
+
+best_boost = gs.best_estimator_
+gs.best_params_, -gs.best_score_
+
+pred = best_boost.predict(X_test)
+proba = best_boost.predict_proba(X_test)
+
+best_boost_metrics = {
+    "Model": "HistGradientBoosting",
+    "LogLoss": log_loss(y_test, proba),
+    "MacroF1": f1_score(y_test, pred, average="macro"),
+    "Accuracy": accuracy_score(y_test, pred),
+}
+best_boost_metrics
+```
+
+## 2.6 Other models
+
+```{python}
+#| label: tbl-final-results
+#| tbl-cap: "Model comparison on the test set."
+
+results_df = pd.DataFrame([
+    baseline_metrics,
+    logreg_metrics,
+    poly_metrics,
+    best_boost_metrics, 
+])
+
+results_df = results_df.rename(columns={
+    "LogLoss": "Test_LogLoss",
+    "MacroF1": "Test_MacroF1",
+    "Accuracy": "Test_Accuracy"
+})
+
+results_df.sort_values("Test_LogLoss").style.format({
+    "Test_LogLoss": "{:.3f}",
+    "Test_MacroF1": "{:.3f}",
+    "Test_Accuracy": "{:.3f}",
+    "CV_LogLoss": "{:.3f}" if "CV_LogLoss" in results_df.columns else "{:.3f}"
+})
+
+```
+
+***Final Comparison***
+    Across the evaluated models (Table @tbl-final-results), HistGradientBoosting achieves the best overall performance on the test set with log loss = 1.322 and accuracy = 0.391, indicating improved probability estimates and higher label correctness compared to the linear baselines. Logistic Regression performs notably worse (log loss = 1.396, accuracy = 0.208), suggesting that linear decision boundaries are not sufficient to separate the four air quality categories in this dataset. 
+
+    The polynomial logistic regression provides a small improvement in accuracy (0.22 vs 0.208) but does not improve log loss, indicating that while it captures some non-linear interactions, it does not produce better-calibrated probabilities. 
+
+    The baseline model (most frequent class) achieves a relatively high accuracy (0.40) due to class imbalance but has very poor log loss (21.63), confirming that it does not learn any meaningful relationships between features and the target.
+***Conclusion***
+    Overall, the tuned boosting model provides the best balance of improved probability estimates (log loss) and better label prediction (accuracy, macro F1), making it the most effective choice for this classification task. The importance analysis also highlights which features are driving predictions, providing insights into the factors influencing air quality categories.
+
+    In a real deployment, I would further validate the boosting model with cross-validation and consider probability calibration (e.g., isotonic regression) if calibrated risk scores are required.
+

@@ -1,0 +1,288 @@
+---
+jupyter: ds
+title: "CO₂ Emissions Prediction (Regression Case)"
+author: "Christoffer Boye Tvedte"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+## Executive Summary
+
+This mini-case builds a predictive model for vehicle CO₂ emissions (g/km) using engine characteristics, fuel consumption metrics, and a small set of categorical descriptors (make, vehicle class, transmission, fuel type).
+
+- **Best-performing model (test split):** Gradient Boosting Regressor  
+- **Performance (test split):** RMSE **3.84 g/km**, MAE **2.48 g/km**, R² **0.9957**  
+- **Benchmark:** Ridge RMSE **5.08**, Linear Regression RMSE **5.09**  
+- **Key insight:** Fuel consumption variables are the strongest predictors, while categorical vehicle attributes add incremental explanatory power.
+- **Practical relevance:** The model provides a fast, data-driven way to estimate emissions for reporting, scenario comparisons, and decision support.
+
+## Problem Statement
+
+Vehicle fleets are often assessed on emissions impact for reporting, taxation, and sustainability decisions.  
+The objective of this case is to **predict CO₂ emissions (g/km)** from observable vehicle specifications and fuel consumption measurements.  
+
+A good solution should:
+
+1. achieve low prediction error (RMSE/MAE), and  
+
+2. remain interpretable enough to explain which factors drive emissions.
+
+## Data
+The file `co2.csv` contains car specifications, fuel consumption, and CO2 emissions.
+
+| Column | Description |
+| ------ | ----------- |
+| Brand | The brand or manufacturer of the vehicle (e.g., Toyota, Ford, BMW).
+| Vehicle Type | Classification of vehicles based on size and usage (e.g., SUV, Sedan).
+| Engine Size (L) | Engine displacement volume in liters.
+| Cylinders | Number of cylinders in the engine.
+| Transmission | Type of transmission (e.g., Automatic, Manual).
+| Fuel Type | Type of fuel used by the vehicle (e.g., Gasoline, Diesel, Hybrid).
+| Fuel Consumption (City, Hwy, and Combined) |  Fuel efficiency measured in liters per 100 kilometers (L/100 km).
+| CO2 Emissions (g/km) |  Carbon dioxide emissions per kilometer (**target**).
+
+```{python}
+import numpy as np
+np.random.seed(42)
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from pandas.api.types import is_numeric_dtype
+
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_score
+from sklearn.inspection import permutation_importance
+```
+
+The dataset (`co2.csv`) contains vehicle specifications and fuel consumption measurements.
+
+```{python}
+df = pd.read_csv("../data/co2.csv")  
+df.shape, df.columns
+```
+
+## Target & Features
+```{python}
+target = "CO2 Emissions(g/km)"
+X = df.drop(columns=[target]).copy()
+y = df[target].copy()
+
+X.head()
+```
+
+## Portfolio modelling choice
+The column Model has very high cardinality. One-hot encoding creates a very large feature space and reduces interpretability.
+For this portfolio case, I focus on drivers rather than “lookup by model”, and therefore drop Model.
+```{python}
+X = X.drop(columns=["Model"])
+X.columns
+```
+
+## Exploratory Data Analysis (EDA)
+
+### Target distribution
+```{python}
+plt.figure()
+plt.hist(y, bins=30)
+plt.title("Distribution of CO₂ emissions (g/km)")
+plt.xlabel("CO₂ emissions (g/km)")
+plt.ylabel("Count")
+plt.show()
+```
+
+### Relationships with combined fuel consumption
+```{python}
+plt.figure()
+sns.scatterplot(x=df["Fuel Consumption Comb (L/100 km)"], y=df[target], alpha=0.3)
+plt.title("CO₂ emissions vs combined fuel consumption")
+plt.xlabel("Fuel Consumption Comb (L/100 km)")
+plt.ylabel("CO₂ emissions (g/km)")
+plt.show()
+```
+
+## Modeling 
+
+### Train-test split and preprocessing pipeline
+I use a simple train/test split for a clean and reproducible benchmark.
+Numeric features are imputed and standardized; categorical features are imputed and one-hot encoded.
+```{python}
+cat_cols = [c for c in X.columns if not is_numeric_dtype(X[c])]
+num_cols = [c for c in X.columns if is_numeric_dtype(X[c])] 
+
+preprocess = ColumnTransformer([
+    ("num", Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler())
+    ]), num_cols),
+    ("cat", Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore"))
+    ]), cat_cols),
+])
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+cat_cols, num_cols
+```
+
+### Models 
+I benchmark three models:
+- Baseline: Linear Regression
+- Regularized linear model: Ridge Regression
+- Non-linear model: Gradient Boosting Regressor
+```{python}
+models = {
+    "Baseline (LinearRegression)": LinearRegression(),
+    "Ridge": Ridge(alpha=1.0, random_state=42),
+    "GradientBoosting": GradientBoostingRegressor(random_state=42),
+}
+
+results = []
+fitted = {}
+
+for name, model in models.items():
+    pipe = Pipeline([
+        ("preprocess", preprocess),
+        ("model", model),
+    ])
+    pipe.fit(X_train, y_train)
+    pred = pipe.predict(X_test)
+
+    rmse = root_mean_squared_error(y_test, pred)
+    mae = mean_absolute_error(y_test, pred)
+    r2 = r2_score(y_test, pred)
+
+    results.append((name, rmse, mae, r2))
+    fitted[name] = pipe
+
+results_df = pd.DataFrame(results, columns=["Model", "RMSE", "MAE", "R2"]).sort_values("RMSE")
+results_df
+```
+
+## Evaluation of best model
+
+### Model comparison
+```{python}
+results_df
+```
+
+### Predicted vs actual plot for best model
+```{python}
+best_model_name = results_df.iloc[0]["Model"]
+best_pipe = fitted[best_model_name]
+
+best_pred = best_pipe.predict(X_test)
+
+plt.figure()
+plt.scatter(y_test, best_pred, alpha=0.3)
+plt.title(f"Predicted vs Actual (Best model: {best_model_name})")
+plt.xlabel("Actual CO₂ emissions (g/km)")
+plt.ylabel("Predicted CO₂ emissions (g/km)")
+
+min_val = min(y_test.min(), best_pred.min())
+max_val = max(y_test.max(), best_pred.max())
+plt.plot([min_val, max_val], [min_val, max_val])
+plt.show()
+```
+
+
+### Residuals plot for best model
+```{python}
+residuals = y_test - best_pred
+
+plt.figure()
+plt.scatter(best_pred, residuals, alpha=0.3)
+plt.axhline(0)
+plt.title("Residuals vs Predicted")
+plt.xlabel("Predicted CO₂ emissions (g/km)")
+plt.ylabel("Residual (actual - predicted)")
+plt.show()
+```
+
+### Permutation importance for best model
+```{python}
+perm = permutation_importance(
+    best_pipe,
+    X_test,
+    y_test,
+    n_repeats=10,
+    random_state=42,
+    scoring="neg_root_mean_squared_error"
+)
+
+imp = (
+    pd.Series(perm.importances_mean, index=X_test.columns)
+    .sort_values(ascending=False)
+    .head(15)
+)
+
+imp
+```
+
+``` {python}
+imp.sort_values().plot(kind="barh")
+plt.title("Permutation Importance (Gradient Boosting) — Top 15 features")
+plt.xlabel("Importance (increase in error when permuted)")
+plt.ylabel("")
+plt.show()
+```
+
+
+## Model interpretation (linear surrogate)
+The best predictive model is Gradient Boosting, but I use Ridge for interpretation because coefficients provide a stable, human-readable view of drivers under correlated features.
+
+### What drives emissions?
+```{python}
+ridge_pipe = fitted["Ridge"]
+pre = ridge_pipe.named_steps["preprocess"]
+ridge_model = ridge_pipe.named_steps["model"]
+
+feature_names = pre.get_feature_names_out()
+coefs = pd.Series(ridge_model.coef_, index=feature_names)
+
+top = coefs.reindex(coefs.abs().sort_values(ascending=False).index).head(15)
+top
+```
+
+```{python}
+plt.figure()
+top.sort_values().plot(kind="barh")
+plt.title("Ridge coefficients — Top 15 (by absolute value)")
+plt.xlabel("Coefficient (standardized units; categorical vs reference level)")
+plt.ylabel("")
+plt.show()
+```
+
+Fuel consumption metrics (city/highway/combined) are among the strongest predictors of CO₂ emissions: higher consumption corresponds to higher emissions, as expected. Fuel type also shows large shifts relative to the reference category, indicating that the engine/fuel technology is a key driver of emissions. Brand and vehicle class variables add smaller adjustments that likely capture differences in vehicle segments (e.g., performance-oriented brands) not fully explained by the numeric consumption variables.
+Coefficients for numeric features are in standardized units (one standard deviation change), and categorical coefficients represent effects relative to the omitted reference level.
+
+## Limitations and next steps
+No external validation: Results are based on a single random split; I would add k-fold cross-validation for robust benchmarking.
+
+High-cardinality features: Dropping Model improves interpretability; in production, I’d test target encoding or embeddings if model-level prediction is needed.
+
+Data scope: The dataset may not generalize to new markets, years, or different test conditions.
+Next steps:
+- Hyperparameter tuning + cross-validation
+- Try alternative models (XGBoost/RandomForest) (valgfritt)
+- Deploy pipeline / CLI / Streamlit demo
+
