@@ -21,4 +21,4 @@ Applied data science and analytics cases built with Python and Quarto.
 ## Author
 **Christoffer Boye Tvedte**  
 BSc Data Science for Business — BI Norwegian Business School  
-[LinkedIn](https://www.linkedin.com/in/christoffer-boye-tvedte4730223a5)
+[LinkedIn](https://www.linkedin.com/in/christoffer-boye-tvedte4730223a5/)
